@@ -25,7 +25,7 @@ hall_readers = db.Table('hall_readers',
 )
 
 class Hall(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=False)  # Отключаем автоинкремент
     name = db.Column(db.String(100), nullable=False)
     specialization = db.Column(db.String(100), nullable=False)
     library = db.Column(db.String(50), nullable=False)
@@ -50,7 +50,7 @@ class Hall(db.Model):
         }
 
 class Book(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=False)  # Отключаем автоинкремент
     title = db.Column(db.String(100), nullable=False)
     author = db.Column(db.String(100), nullable=False)
     category = db.Column(db.String(50), nullable=False)
@@ -72,7 +72,7 @@ class Book(db.Model):
         }
 
 class Reader(db.Model):
-    reader_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    reader_id = db.Column(db.Integer, primary_key=True, autoincrement=False)  # Отключаем автоинкремент
     first_name = db.Column(db.String(100), nullable=False)
     last_name = db.Column(db.String(100), nullable=False)
     patronymic = db.Column(db.String(100), nullable=True)
@@ -113,6 +113,17 @@ class Borrow(db.Model):
             'due_date': self.due_date.isoformat()
         }
 
+# Функция для нахождения минимального свободного ID
+def find_min_free_id(model, id_column):
+    existing_ids = [getattr(item, id_column) for item in model.query.all()]
+    if not existing_ids:
+        return 1
+    existing_ids.sort()
+    for i in range(1, len(existing_ids) + 2):
+        if i not in existing_ids:
+            return i
+    return max(existing_ids) + 1
+
 @app.errorhandler(400)
 def bad_request(error):
     logger.error(f"Bad request: {str(error)}")
@@ -143,7 +154,11 @@ def create_hall():
         logger.error("Total seats must be positive")
         abort(400, description="Total seats must be a positive number")
 
+    # Находим минимальный свободный ID
+    new_id = find_min_free_id(Hall, 'id')
+
     new_hall = Hall(
+        id=new_id,
         name=data['name'],
         specialization=data['specialization'],
         library=data['library'],
@@ -152,7 +167,7 @@ def create_hall():
     db.session.add(new_hall)
     try:
         db.session.commit()
-        logger.info(f"Hall created: {new_hall.name}")
+        logger.info(f"Hall created: {new_hall.name} with ID {new_id}")
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error creating hall: {str(e)}")
@@ -173,6 +188,26 @@ def get_hall_readers(hall_id):
         abort(404, description="Hall not found")
     logger.info(f"Fetched readers for hall ID {hall_id}")
     return jsonify([reader.to_dict() for reader in hall.readers])
+
+@app.route('/api/halls/<int:hall_id>/books/author', methods=['GET'])
+def count_author_books_in_hall(hall_id):
+    hall = Hall.query.get(hall_id)
+    if not hall:
+        abort(404, description="Hall not found")
+
+    author = request.args.get('author', '')
+    if not author:
+        abort(400, description="Author name is required")
+
+    readers = hall.readers
+    reader_ids = [reader.reader_id for reader in readers]
+    borrowed_books = Borrow.query.filter(Borrow.reader_id.in_(reader_ids)).all()
+    book_ids = [borrow.book_id for borrow in borrowed_books]
+    books = Book.query.filter(Book.id.in_(book_ids), Book.author.ilike(f'%{author}%')).all()
+    count = len(books)
+
+    logger.info(f"Counted {count} books by author '{author}' in hall ID {hall_id}")
+    return jsonify({'count': count})
 
 @app.route('/api/halls/<int:hall_id>/readers', methods=['POST'])
 def add_reader_to_hall(hall_id):
@@ -243,7 +278,10 @@ def create_book():
     total_copies = data['total_copies']
     books = []
     for _ in range(total_copies):
+        # Находим минимальный свободный ID для каждой книги
+        new_id = find_min_free_id(Book, 'id')
         new_book = Book(
+            id=new_id,
             title=data['title'],
             author=data['author'],
             category=data['category'],
@@ -337,8 +375,12 @@ def create_reader():
         logger.error(f"Invalid date format: {str(e)}")
         abort(400, description="Invalid date format for birth_date. Use YYYY-MM-DD")
 
+    # Находим минимальный свободный ID
+    new_id = find_min_free_id(Reader, 'reader_id')
+
     try:
         new_reader = Reader(
+            reader_id=new_id,
             first_name=data['first_name'],
             last_name=data['last_name'],
             patronymic=data.get('patronymic', None),
@@ -347,7 +389,7 @@ def create_reader():
             phone=data['phone'],
             education=data.get('education', None)
         )
-        logger.info(f"Adding reader: {new_reader.first_name} {new_reader.last_name}")
+        logger.info(f"Adding reader: {new_reader.first_name} {new_reader.last_name} with ID {new_id}")
         db.session.add(new_reader)
         db.session.commit()
         logger.info(f"Reader created: {new_reader.first_name} {new_reader.last_name}")
@@ -402,17 +444,17 @@ def get_borrowed_books(reader_id):
 def lend_book():
     data = request.get_json()
     logger.info(f"Received lend data: {data}")
-    if not data or 'reader_id' not in data or 'book_id' not in data: # Изменено
+    if not data or 'reader_id' not in data or 'book_id' not in data:
         abort(400, description="Missing 'reader_id' or 'book_id' in request")
 
     reader_id = data['reader_id']
-    book_id = data['book_id'] # Изменено
+    book_id = data['book_id']
 
     reader = Reader.query.get(reader_id)
     if not reader:
         abort(404, description="Reader not found")
 
-    book = Book.query.get(book_id) # Изменено
+    book = Book.query.get(book_id)
     if not book:
         abort(404, description="Book not found")
 
@@ -442,17 +484,17 @@ def lend_book():
 def return_book():
     data = request.get_json()
     logger.info(f"Received return data: {data}")
-    if not data or 'reader_id' not in data or 'book_id' not in data: # Изменено
+    if not data or 'reader_id' not in data or 'book_id' not in data:
         abort(400, description="Missing 'reader_id' or 'book_id' in request")
 
     reader_id = data['reader_id']
-    book_id = data['book_id'] # Изменено
+    book_id = data['book_id']
 
     reader = Reader.query.get(reader_id)
     if not reader:
         abort(404, description="Reader not found")
 
-    book = Book.query.get(book_id) # Изменено
+    book = Book.query.get(book_id)
     if not book:
         abort(404, description="Book not found")
 

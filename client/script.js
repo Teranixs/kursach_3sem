@@ -1,8 +1,34 @@
 document.addEventListener('DOMContentLoaded', () => {
-    fetchBooks();
-    fetchReaders();
-    fetchHalls();
+    // Инициализация вкладок
+    setupTabs();
+
+    // Инициализация списков только при открытии вкладки "Работа с данными"
+    const dataTab = document.querySelector('.tab[data-tab="data"]');
+    dataTab.addEventListener('click', () => {
+        fetchBooks();
+        fetchReaders();
+        fetchHalls();
+    });
 });
+
+// Функция для настройки вкладок
+function setupTabs() {
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Удаляем активный класс у всех вкладок и контента
+            tabs.forEach(t => t.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+
+            // Добавляем активный класс к текущей вкладке и её контенту
+            tab.classList.add('active');
+            const tabId = tab.getAttribute('data-tab');
+            document.getElementById(tabId).classList.add('active');
+        });
+    });
+}
 
 // Форма для создания зала
 const addHallForm = document.getElementById('add-hall-form');
@@ -47,6 +73,19 @@ getHallReadersForm.addEventListener('submit', async (event) => {
     await fetchHallReaders(hallId);
 });
 
+// Форма для подсчёта книг автора в зале
+const countAuthorBooksForm = document.getElementById('count-author-books-form');
+countAuthorBooksForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const hallId = parseInt(document.getElementById('hall-id-author-books').value);
+    const authorName = document.getElementById('author-name').value.trim();
+    if (!authorName) {
+        alert('Пожалуйста, введите имя автора.');
+        return;
+    }
+    await countAuthorBooksInHall(hallId, authorName);
+});
+
 // Форма добавления книги
 const addBookForm = document.getElementById('add-book-form');
 addBookForm.addEventListener('submit', async (event) => {
@@ -89,7 +128,7 @@ const lendBookForm = document.getElementById('lend-book-form');
 lendBookForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const readerId = parseInt(document.getElementById('lend-reader-id').value);
-    const bookId = parseInt(document.getElementById('lend-book-id').value); // Теперь по ID
+    const bookId = parseInt(document.getElementById('lend-book-id').value);
     await lendBook(readerId, bookId);
 });
 
@@ -98,7 +137,7 @@ const returnBookForm = document.getElementById('return-book-form');
 returnBookForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const readerId = parseInt(document.getElementById('return-reader-id').value);
-    const bookId = parseInt(document.getElementById('return-book-id').value); // Теперь по ID
+    const bookId = parseInt(document.getElementById('return-book-id').value);
     await returnBook(readerId, bookId);
 });
 
@@ -160,14 +199,28 @@ function displayHalls(halls) {
     hallsList.innerHTML = '';
     halls.forEach(hall => {
         const li = document.createElement('li');
-        li.textContent = 
-            `ID:${'\u00A0'.repeat(10)}${hall.id}\n` +
-            `Название:${'\u00A0'.repeat(10)}${hall.name}\n` +
-            `Специализация:${'\u00A0'.repeat(10)}${hall.specialization}\n` +
-            `Библиотека:${'\u00A0'.repeat(10)}${hall.library}\n` +
-            `Места:${'\u00A0'.repeat(10)}${hall.occupied_seats}/${hall.total_seats} (свободно: ${hall.available_seats})\n` +
-            `-------------------------------------------------------`;
-        li.style.whiteSpace = 'pre-line';
+        li.innerHTML = `
+            <div class="list-item-row">
+                <span class="list-item-label">ID:</span>
+                <span class="list-item-value">${hall.id}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Название:</span>
+                <span class="list-item-value">${hall.name}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Специализация:</span>
+                <span class="list-item-value">${hall.specialization}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Библиотека:</span>
+                <span class="list-item-value">${hall.library}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Места:</span>
+                <span class="list-item-value">${hall.occupied_seats}/${hall.total_seats} (свободно: ${hall.available_seats})</span>
+            </div>
+        `;
         hallsList.appendChild(li);
     });
 }
@@ -262,6 +315,26 @@ async function fetchHallReaders(hallId) {
     }
 }
 
+// Подсчёт книг автора в зале
+async function countAuthorBooksInHall(hallId, authorName) {
+    try {
+        const response = await fetch(`http://127.0.0.1:5000/api/halls/${hallId}/books/author?author=${encodeURIComponent(authorName)}`);
+        if (response.ok) {
+            const result = await response.json();
+            console.log('Author books count:', result);
+            const authorBooksCountDiv = document.getElementById('author-books-count');
+            authorBooksCountDiv.textContent = `Книг автора "${authorName}" в зале: ${result.count}`;
+        } else {
+            const errorText = await response.text();
+            console.error('Failed to count author books:', response.status, errorText);
+            alert(`Не удалось подсчитать книги автора: ${errorText}`);
+        }
+    } catch (error) {
+        console.error('Error counting author books:', error.message);
+        alert(`Произошла ошибка при подсчёте книг автора: ${error.message}`);
+    }
+}
+
 // Отображение списка читателей в зале
 function displayHallReaders(readers) {
     const hallReadersList = document.getElementById('hall-readers-list');
@@ -274,17 +347,40 @@ function displayHallReaders(readers) {
     }
     readers.forEach(reader => {
         const li = document.createElement('li');
-        li.textContent = 
-            `ID:${'\u00A0'.repeat(10)}${reader.reader_id}\n` +
-            `Фамилия:${'\u00A0'.repeat(10)}${reader.last_name}\n` +
-            `Имя:${'\u00A0'.repeat(10)}${reader.first_name}\n` +
-            `Отчество:${'\u00A0'.repeat(10)}${reader.patronymic || 'не указано или отсутствует'}\n` + // Изменено
-            `Номер читательского билета:${'\u00A0'.repeat(10)}${reader.ticket_number}\n` + // Изменено
-            `Дата рождения:${'\u00A0'.repeat(10)}${reader.birth_date}\n` +
-            `Телефон:${'\u00A0'.repeat(10)}${reader.phone}\n` +
-            `Образование:${'\u00A0'.repeat(10)}${reader.education || 'не указано или отсутствует'}\n` + // Изменено
-            `-------------------------------------------------------`;
-        li.style.whiteSpace = 'pre-line';
+        li.innerHTML = `
+            <div class="list-item-row">
+                <span class="list-item-label">ID:</span>
+                <span class="list-item-value">${reader.reader_id}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Фамилия:</span>
+                <span class="list-item-value">${reader.last_name}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Имя:</span>
+                <span class="list-item-value">${reader.first_name}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Отчество:</span>
+                <span class="list-item-value">${reader.patronymic || 'не указано или отсутствует'}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Номер читательского билета:</span>
+                <span class="list-item-value">${reader.ticket_number}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Дата рождения:</span>
+                <span class="list-item-value">${reader.birth_date}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Телефон:</span>
+                <span class="list-item-value">${reader.phone}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Образование:</span>
+                <span class="list-item-value">${reader.education || 'не указано или отсутствует'}</span>
+            </div>
+        `;
         hallReadersList.appendChild(li);
     });
 }
@@ -311,20 +407,55 @@ async function fetchBooks() {
 function displayBooks(books) {
     const booksList = document.getElementById('books-list');
     booksList.innerHTML = '';
+
+    // Группируем книги по названию для подсчёта экземпляров
+    const booksByTitle = {};
     books.forEach(book => {
-        const li = document.createElement('li');
-        li.textContent = 
-            `ID:${'\u00A0'.repeat(10)}${book.id}\n` +
-            `Название:${'\u00A0'.repeat(10)}${book.title}\n` +
-            `Автор:${'\u00A0'.repeat(10)}${book.author}\n` +
-            `Категория:${'\u00A0'.repeat(10)}${book.category}\n` +
-            `Шифр:${'\u00A0'.repeat(10)}${book.unique_code}\n` +
-            // Убрано: Копии:${'\u00A0'.repeat(10)}${book.available_copies}/${book.total_copies}\n` +
-            `Состояние:${'\u00A0'.repeat(10)}${book.condition}\n` +
-            `-------------------------------------------------------`;
-        li.style.whiteSpace = 'pre-line';
-        booksList.appendChild(li);
+        if (!booksByTitle[book.title]) {
+            booksByTitle[book.title] = [];
+        }
+        booksByTitle[book.title].push(book);
     });
+
+    // Отображаем книги с количеством экземпляров
+    for (const title in booksByTitle) {
+        const bookGroup = booksByTitle[title];
+        const book = bookGroup[0]; // Берём первую книгу как представителя группы
+        const count = bookGroup.length; // Количество экземпляров
+
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div class="list-item-row">
+                <span class="list-item-label">ID:</span>
+                <span class="list-item-value">${book.id}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Название:</span>
+                <span class="list-item-value">${book.title}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Автор:</span>
+                <span class="list-item-value">${book.author}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Категория:</span>
+                <span class="list-item-value">${book.category}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Шифр:</span>
+                <span class="list-item-value">${book.unique_code}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Состояние:</span>
+                <span class="list-item-value">${book.condition}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Количество экземпляров:</span>
+                <span class="list-item-value">${count}</span>
+            </div>
+        `;
+        booksList.appendChild(li);
+    }
 }
 
 // Добавление книги
@@ -382,17 +513,40 @@ function displayReaders(readers) {
     }
     readers.forEach(reader => {
         const li = document.createElement('li');
-        li.textContent = 
-            `ID:${'\u00A0'.repeat(10)}${reader.reader_id}\n` +
-            `Фамилия:${'\u00A0'.repeat(10)}${reader.last_name}\n` +
-            `Имя:${'\u00A0'.repeat(10)}${reader.first_name}\n` +
-            `Отчество:${'\u00A0'.repeat(10)}${reader.patronymic || 'не указано или отсутствует'}\n` + // Изменено
-            `Номер читательского билета:${'\u00A0'.repeat(10)}${reader.ticket_number}\n` + // Изменено
-            `Дата рождения:${'\u00A0'.repeat(10)}${reader.birth_date}\n` +
-            `Телефон:${'\u00A0'.repeat(10)}${reader.phone}\n` +
-            `Образование:${'\u00A0'.repeat(10)}${reader.education || 'не указано или отсутствует'}\n` + // Изменено
-            `-------------------------------------------------------`;
-        li.style.whiteSpace = 'pre-line';
+        li.innerHTML = `
+            <div class="list-item-row">
+                <span class="list-item-label">ID:</span>
+                <span class="list-item-value">${reader.reader_id}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Фамилия:</span>
+                <span class="list-item-value">${reader.last_name}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Имя:</span>
+                <span class="list-item-value">${reader.first_name}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Отчество:</span>
+                <span class="list-item-value">${reader.patronymic || 'не указано или отсутствует'}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Номер читательского билета:</span>
+                <span class="list-item-value">${reader.ticket_number}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Дата рождения:</span>
+                <span class="list-item-value">${reader.birth_date}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Телефон:</span>
+                <span class="list-item-value">${reader.phone}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Образование:</span>
+                <span class="list-item-value">${reader.education || 'не указано или отсутствует'}</span>
+            </div>
+        `;
         readersList.appendChild(li);
     });
 }
@@ -469,29 +623,49 @@ function displayBorrowedBooks(borrowedBooks) {
     }
     borrowedBooks.forEach(borrow => {
         const li = document.createElement('li');
-        li.textContent = 
-            `ID читателя:${'\u00A0'.repeat(10)}${borrow.reader_id}\n` +
-            `ID книги:${'\u00A0'.repeat(10)}${borrow.book_id}\n` + // Добавляем ID книги
-            `Название:${'\u00A0'.repeat(10)}${borrow.book_title}\n` +
-            `Автор:${'\u00A0'.repeat(10)}${borrow.book_author}\n` +
-            `Шифр:${'\u00A0'.repeat(10)}${borrow.unique_code}\n` +
-            `Дата выдачи:${'\u00A0'.repeat(10)}${new Date(borrow.borrow_date).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}\n` +
-            `Срок возврата:${'\u00A0'.repeat(10)}${new Date(borrow.due_date).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}\n` +
-            `-------------------------------------------------------`;
-        li.style.whiteSpace = 'pre-line';
+        li.innerHTML = `
+            <div class="list-item-row">
+                <span class="list-item-label">ID читателя:</span>
+                <span class="list-item-value">${borrow.reader_id}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">ID книги:</span>
+                <span class="list-item-value">${borrow.book_id}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Название:</span>
+                <span class="list-item-value">${borrow.book_title}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Автор:</span>
+                <span class="list-item-value">${borrow.book_author}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Шифр:</span>
+                <span class="list-item-value">${borrow.unique_code}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Дата выдачи:</span>
+                <span class="list-item-value">${new Date(borrow.borrow_date).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}</span>
+            </div>
+            <div class="list-item-row">
+                <span class="list-item-label">Срок возврата:</span>
+                <span class="list-item-value">${new Date(borrow.due_date).toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' })}</span>
+            </div>
+        `;
         borrowedBooksList.appendChild(li);
     });
 }
 
 // Выдача книги
-async function lendBook(readerId, bookId) { // Теперь принимаем bookId
+async function lendBook(readerId, bookId) {
     try {
         const response = await fetch('http://127.0.0.1:5000/api/lend', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ reader_id: readerId, book_id: bookId }) // Изменено
+            body: JSON.stringify({ reader_id: readerId, book_id: bookId })
         });
         if (response.ok) {
             await fetchBooks();
@@ -510,14 +684,14 @@ async function lendBook(readerId, bookId) { // Теперь принимаем b
 }
 
 // Возврат книги
-async function returnBook(readerId, bookId) { // Теперь принимаем bookId
+async function returnBook(readerId, bookId) {
     try {
         const response = await fetch('http://127.0.0.1:5000/api/return', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ reader_id: readerId, book_id: bookId }) // Изменено
+            body: JSON.stringify({ reader_id: readerId, book_id: bookId })
         });
         if (response.ok) {
             await fetchBooks();
