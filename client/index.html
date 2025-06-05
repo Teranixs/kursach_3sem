@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Библиотечная система</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .category-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .category-section h2.category-title {
+            background-color: #ac3331;
+            color: white;
+            padding: 10px 15px;
+            margin: -20px -20px 20px -20px;
+            border-radius: 8px 8px 0 0;
+            font-size: 24px;
+            text-align: center;
+        }
+        h2 {
+            color: #333;
+            margin-top: 20px;
+            font-size: 20px;
+        }
+        form {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"], input[type="number"], input[type="date"], select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #ac3331;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #c03937;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            background-color: #fff;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        #halls-list, #books-list, #readers-list, #borrowed-books-list, #hall-readers-list {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Библиотечная система</h1>
+
+    <!-- Работа с залами -->
+    <div class="category-section">
+        <h2 class="category-title">Работа с залами</h2>
+
+        <!-- Форма для создания зала -->
+        <h2>Создать зал</h2>
+        <form id="add-hall-form">
+            <label for="hall-name">Название зала:</label>
+            <input type="text" id="hall-name" placeholder="Название зала" required>
+
+            <label for="hall-specialization">Специализация:</label>
+            <input type="text" id="hall-specialization" placeholder="Специализация" required>
+
+            <label for="hall-library">Библиотека:</label>
+            <select id="hall-library" required>
+                <option value="Общая">Общая</option>
+                <option value="Физико-Математическая">Физико-Математическая</option>
+                <option value="Гуманитарная">Гуманитарная</option>
+                <option value="Историческая">Историческая</option>
+            </select>
+
+            <label for="hall-total-seats">Количество мест:</label>
+            <input type="number" id="hall-total-seats" placeholder="Количество мест" min="1" required>
+
+            <button type="submit">Создать зал</button>
+        </form>
+
+        <!-- Форма для добавления читателя в зал -->
+        <h2>Добавить читателя в зал</h2>
+        <form id="add-reader-to-hall-form">
+            <label for="hall-id-add-reader">ID зала:</label>
+            <input type="number" id="hall-id-add-reader" placeholder="ID зала" required>
+
+            <label for="reader-id-add-hall">ID читателя:</label>
+            <input type="number" id="reader-id-add-hall" placeholder="ID читателя" required>
+
+            <button type="submit">Добавить читателя в зал</button>
+        </form>
+
+        <!-- Форма для удаления читателя из зала -->
+        <h2>Удалить читателя из зала</h2>
+        <form id="remove-reader-from-hall-form">
+            <label for="hall-id-remove-reader">ID зала:</label>
+            <input type="number" id="hall-id-remove-reader" placeholder="ID зала" required>
+
+            <label for="reader-id-remove-hall">ID читателя:</label>
+            <input type="number" id="reader-id-remove-hall" placeholder="ID читателя" required>
+
+            <button type="submit">Удалить читателя из зала</button>
+        </form>
+
+        <!-- Форма для просмотра читателей в зале -->
+        <h2>Список читателей в зале</h2>
+        <form id="get-hall-readers-form">
+            <label for="hall-id-readers">ID зала:</label>
+            <input type="number" id="hall-id-readers" placeholder="ID зала" required>
+
+            <button type="submit">Показать читателей</button>
+        </form>
+
+        <!-- Отображение списка читателей в зале -->
+        <ul id="hall-readers-list"></ul>
+
+        <!-- Отображение списка залов -->
+        <h2>Список залов</h2>
+        <ul id="halls-list"></ul>
+    </div>
+
+    <!-- Работа с книгами -->
+    <div class="category-section">
+        <h2 class="category-title">Работа с книгами</h2>
+
+        <!-- Форма для добавления книги -->
+        <h2>Добавить книгу</h2>
+        <form id="add-book-form">
+            <label for="book-title">Название:</label>
+            <input type="text" id="book-title" placeholder="Название книги" required>
+
+            <label for="book-author">Автор:</label>
+            <input type="text" id="book-author" placeholder="Автор" required>
+
+            <label for="book-category">Категория:</label>
+            <input type="text" id="book-category" placeholder="Категория" required>
+
+            <label for="book-copies">Количество копий:</label>
+            <input type="number" id="book-copies" placeholder="Количество копий" min="1" value="1" required>
+
+            <label for="book-condition">Состояние:</label>
+            <select id="book-condition" required>
+                <option value="good">Хорошее</option>
+                <option value="damaged">Поврежденное</option>
+            </select>
+
+            <button type="submit">Добавить книгу</button>
+        </form>
+
+        <!-- Форма для выдачи книги -->
+        <h2>Выдать книгу</h2>
+        <form id="lend-book-form">
+            <label for="lend-reader-id">ID читателя:</label>
+            <input type="number" id="lend-reader-id" placeholder="ID читателя" required>
+
+            <label for="lend-book-id">ID книги:</label> <!-- Заменяем название на ID -->
+            <input type="number" id="lend-book-id" placeholder="ID книги" required>
+
+            <button type="submit">Выдать книгу</button>
+        </form>
+
+        <!-- Форма для возврата книги -->
+        <h2>Вернуть книгу</h2>
+        <form id="return-book-form">
+            <label for="return-reader-id">ID читателя:</label>
+            <input type="number" id="return-reader-id" placeholder="ID читателя" required>
+
+            <label for="return-book-id">ID книги:</label> <!-- Заменяем название на ID -->
+            <input type="number" id="return-book-id" placeholder="ID книги" required>
+
+            <button type="submit">Вернуть книгу</button>
+        </form>
+
+        <!-- Форма для поиска книг -->
+        <h2>Поиск книг</h2>
+        <form id="search-book-form">
+            <label for="search-title">Название:</label>
+            <input type="text" id="search-title" placeholder="Название">
+
+            <label for="search-author">Автор:</label>
+            <input type="text" id="search-author" placeholder="Автор">
+
+            <label for="search-category">Категория:</label>
+            <input type="text" id="search-category" placeholder="Категория">
+
+            <button type="submit">Поиск</button>
+        </form>
+
+        <!-- Форма для удаления книги -->
+        <h2>Удалить книгу</h2>
+        <form id="delete-book-form">
+            <label for="delete-book-id">ID книги:</label>
+            <input type="number" id="delete-book-id" placeholder="ID книги" required>
+
+            <button type="submit">Удалить книгу</button>
+        </form>
+
+        <!-- Форма для получения списка книг читателя -->
+        <h2>Узнать список книг читателя</h2>
+        <form id="get-borrowed-books-form">
+            <label for="borrowed-reader-id">ID читателя:</label>
+            <input type="number" id="borrowed-reader-id" placeholder="ID читателя" required>
+
+            <button type="submit">Показать книги</button>
+        </form>
+
+        <!-- Отображение списка книг -->
+        <h2>Список книг</h2> <!-- Поменяли местами -->
+        <ul id="books-list"></ul>
+
+        <!-- Отображение списка выданных книг -->
+        <h2>Выданные книги</h2> <!-- Поменяли местами -->
+        <ul id="borrowed-books-list"></ul>
+    </div>
+
+    <!-- Работа с читателями -->
+    <div class="category-section">
+        <h2 class="category-title">Работа с читателями</h2>
+
+        <!-- Форма для регистрации читателя -->
+        <h2>Зарегистрировать читателя</h2>
+        <form id="add-reader-form">
+            <label for="reader-first-name">Имя:</label>
+            <input type="text" id="reader-first-name" placeholder="Имя" required>
+
+            <label for="reader-last-name">Фамилия:</label>
+            <input type="text" id="reader-last-name" placeholder="Фамилия" required>
+
+            <label for="reader-patronymic">Отчество:</label>
+            <input type="text" id="reader-patronymic" placeholder="Отчество (при наличии)"> <!-- Изменено -->
+
+            <label for="reader-ticket-number">Номер читательского билета:</label> <!-- Изменено -->
+            <input type="text" id="reader-ticket-number" placeholder="Номер читательского билета" required>
+
+            <label for="reader-birth-date">Дата рождения:</label>
+            <input type="date" id="reader-birth-date" required>
+
+            <label for="reader-phone">Телефон:</label>
+            <input type="text" id="reader-phone" placeholder="Телефон" required>
+
+            <label for="reader-education">Образование:</label>
+            <input type="text" id="reader-education" placeholder="Образование (при наличии)"> <!-- Изменено -->
+
+            <button type="submit">Зарегистрировать</button>
+        </form>
+
+        <!-- Форма для удаления читателя -->
+        <h2>Удалить читателя</h2>
+        <form id="delete-reader-form">
+            <label for="delete-reader-id">ID читателя:</label>
+            <input type="number" id="delete-reader-id" placeholder="ID читателя" required>
+
+            <button type="submit">Удалить читателя</button>
+        </form>
+
+        <!-- Отображение списка читателей -->
+        <h2>Список читателей</h2>
+        <ul id="readers-list"></ul>
+    </div>
+
+    <!-- Подключение script.js -->
+    <script src="script.js"></script>
+</body>
+</html>
